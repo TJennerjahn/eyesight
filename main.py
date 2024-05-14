@@ -1,3 +1,4 @@
+import os
 import sys
 import argparse
 import signal
@@ -10,6 +11,10 @@ shared_memory = None
 def cleanup():
     if shared_memory and shared_memory.isAttached():
         shared_memory.detach()
+    try:
+        os.remove("/tmp/break_reminder_time.txt")
+    except OSError:
+        pass
 
 def signal_handler(sig, frame):
     cleanup()
@@ -23,6 +28,7 @@ class BreakReminderApp(QApplication):
         self.time_left = break_interval
         self.paused = False
         self.overlays = []
+        self.file_path = "/tmp/break_reminder_time.txt"
         self.setup_tray_icon()
 
         # Set up the timer for the initial break interval
@@ -80,6 +86,7 @@ class BreakReminderApp(QApplication):
                 self.initial_timer.stop()
                 self.start_break()
         self.update_tray_icon()
+        self.write_time_to_file()
 
     def update_overlays(self):
         if not self.paused:
@@ -89,6 +96,7 @@ class BreakReminderApp(QApplication):
                 self.time_left -= 1
             else:
                 self.timer.stop()
+        self.write_time_to_file()
 
     def setup_tray_icon(self):
         self.tray_icon = QSystemTrayIcon(QIcon("icon.png"), self)
@@ -126,9 +134,24 @@ class BreakReminderApp(QApplication):
             if hasattr(self, 'timer'):
                 self.timer.start()
 
+    def write_time_to_file(self):
+        with open(self.file_path, "w") as f:
+            if self.paused:
+                f.write("Paused")
+            elif self.time_left <= 60:
+                f.write(f"< 1 min")
+            else:
+                f.write(f"{self.time_left // 60} min")
+
+    def quit(self):
+        cleanup()
+        super().quit()
+
+
 def main(break_interval, break_duration):
     global shared_memory
 
+    # Set up signal handling
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
