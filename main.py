@@ -3,16 +3,19 @@ import sys
 import argparse
 import signal
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QSystemTrayIcon, QMenu, QAction, QMessageBox
-from PyQt5.QtCore import Qt, QTimer, QSharedMemory
+from PyQt5.QtCore import Qt, QTimer, QSharedMemory, QBuffer, QDataStream, QByteArray
 from PyQt5.QtGui import QFont, QIcon
 
 shared_memory = None
+
+file_path = "/tmp/eyesight_status"
+
 
 def cleanup():
     if shared_memory and shared_memory.isAttached():
         shared_memory.detach()
     try:
-        os.remove("/tmp/break_reminder_time.txt")
+        os.remove(file_path)
     except OSError:
         pass
 
@@ -20,15 +23,17 @@ def signal_handler(sig, frame):
     cleanup()
     sys.exit(0)
 
+shared_memory_key = "EyeSightApp"
+
 class BreakReminderApp(QApplication):
     def __init__(self, break_interval, break_duration, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shared_memory = QSharedMemory(shared_memory_key)
         self.break_interval = break_interval
         self.break_duration = break_duration
         self.time_left = break_interval
         self.paused = False
         self.overlays = []
-        self.file_path = "/tmp/break_reminder_time.txt"
         self.setup_tray_icon()
 
         # Set up the timer for the initial break interval
@@ -76,6 +81,7 @@ class BreakReminderApp(QApplication):
             overlay.close()
         self.overlays = []
         self.time_left = self.break_interval
+        self.timer.stop()
         self.initial_timer.start()
 
     def update_time_left(self):
@@ -83,6 +89,8 @@ class BreakReminderApp(QApplication):
             if self.time_left > 0:
                 self.time_left -= 1
             else:
+                if hasattr(self, 'timer') and self.timer.isActive():
+                    self.timer.stop()
                 self.initial_timer.stop()
                 self.start_break()
         self.update_tray_icon()
@@ -99,7 +107,7 @@ class BreakReminderApp(QApplication):
         self.write_time_to_file()
 
     def setup_tray_icon(self):
-        self.tray_icon = QSystemTrayIcon(QIcon("icon.png"), self)
+        self.tray_icon = QSystemTrayIcon(QIcon("/home/tjennerjahn/Dev/eyesight/icon.png"), self)
         self.tray_menu = QMenu()
 
         self.show_remaining_action = QAction(f"Time until next break: {self.time_left} seconds", self)
@@ -135,20 +143,29 @@ class BreakReminderApp(QApplication):
                 self.timer.start()
 
     def write_time_to_file(self):
-        with open(self.file_path, "w") as f:
+        with open(file_path, "w") as f:
             if self.paused:
-                f.write("Paused")
-            elif self.time_left <= 60:
-                f.write(f"< 1 min")
+                f.write("-1")
             else:
-                f.write(f"{self.time_left // 60} min")
+                f.write(f"{self.time_left}")
 
     def quit(self):
         cleanup()
         super().quit()
 
+def check_remaining_time():
+    if not os.path.exists(file_path):
+        return
 
-def main(break_interval, break_duration):
+    try:
+        with open(file_path, "r") as f:
+            message = f.read().strip()
+            if message:
+                print(f"{message}")
+    except:
+        pass
+
+def main(break_interval=1800, break_duration=30):
     global shared_memory
 
     # Set up signal handling
@@ -158,7 +175,7 @@ def main(break_interval, break_duration):
     app = QApplication(sys.argv)
 
     # Single instance check using QSharedMemory
-    shared_memory = QSharedMemory("BreakReminderApp")
+    shared_memory = QSharedMemory(shared_memory_key)
     if shared_memory.attach():
         QMessageBox.critical(None, "Error", "An instance of this application is already running.")
         sys.exit(1)
@@ -176,3 +193,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args.break_interval, args.break_duration)
+
