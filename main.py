@@ -2,7 +2,15 @@ import os
 import sys
 import argparse
 import signal
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QSystemTrayIcon, QMenu, QAction, QMessageBox
+from PyQt5.QtWidgets import (
+    QApplication,
+    QLabel,
+    QMainWindow,
+    QSystemTrayIcon,
+    QMenu,
+    QAction,
+    QMessageBox,
+)
 from PyQt5.QtCore import Qt, QTimer, QSharedMemory, QBuffer, QDataStream, QByteArray
 from PyQt5.QtGui import QFont, QIcon
 
@@ -19,11 +27,14 @@ def cleanup():
     except OSError:
         pass
 
+
 def signal_handler(sig, frame):
     cleanup()
     sys.exit(0)
 
+
 shared_memory_key = "EyeSightApp"
+
 
 class BreakReminderApp(QApplication):
     def __init__(self, break_interval, break_duration, *args, **kwargs):
@@ -49,18 +60,20 @@ class BreakReminderApp(QApplication):
 
     def setup_overlay_for_screen(self, screen):
         window = QMainWindow()
-        window.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        window.setWindowFlags(
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+        )
         window.setStyleSheet("background-color: black;")
-        
+
         message = QLabel(window)
-        message.setFont(QFont('Arial', 24, QFont.Bold))
+        message.setFont(QFont("Arial", 24, QFont.Bold))
         message.setStyleSheet("color: white;")
         message.setAlignment(Qt.AlignCenter)
-        
+
         geometry = screen.geometry()
         window.setGeometry(geometry)
         message.setGeometry(0, 0, geometry.width(), geometry.height())
-        
+
         window.showFullScreen()
         window.message_label = message  # Save reference to the message label
         return window
@@ -74,7 +87,9 @@ class BreakReminderApp(QApplication):
         self.timer.start()
 
         # Set up the timer to automatically quit the app after the break duration
-        QTimer.singleShot(self.break_duration * 1000, self.end_break)  # Convert seconds to milliseconds
+        QTimer.singleShot(
+            self.break_duration * 1000, self.end_break
+        )  # Convert seconds to milliseconds
 
     def end_break(self):
         for overlay in self.overlays:
@@ -89,7 +104,7 @@ class BreakReminderApp(QApplication):
             if self.time_left > 0:
                 self.time_left -= 1
             else:
-                if hasattr(self, 'timer') and self.timer.isActive():
+                if hasattr(self, "timer") and self.timer.isActive():
                     self.timer.stop()
                 self.initial_timer.stop()
                 self.start_break()
@@ -100,17 +115,23 @@ class BreakReminderApp(QApplication):
         if not self.paused:
             if self.time_left > 0:
                 for overlay in self.overlays:
-                    overlay.message_label.setText(f"Take a short pause!\nTime left: {self.time_left} seconds")
+                    overlay.message_label.setText(
+                        f"Take a short pause!\nTime left: {self.time_left} seconds"
+                    )
                 self.time_left -= 1
             else:
                 self.timer.stop()
         self.write_time_to_file()
 
     def setup_tray_icon(self):
-        self.tray_icon = QSystemTrayIcon(QIcon("/home/tjennerjahn/Dev/eyesight/icon.png"), self)
+        self.tray_icon = QSystemTrayIcon(
+            QIcon("/home/tjennerjahn/Dev/eyesight/icon.png"), self
+        )
         self.tray_menu = QMenu()
 
-        self.show_remaining_action = QAction(f"Time until next break: {self.time_left} seconds", self)
+        self.show_remaining_action = QAction(
+            f"Time until next break: {self.time_left} seconds", self
+        )
         self.tray_menu.addAction(self.show_remaining_action)
 
         pause_action = QAction("Pause", self)
@@ -126,7 +147,9 @@ class BreakReminderApp(QApplication):
         self.update_tray_icon()
 
     def update_tray_icon(self):
-        self.show_remaining_action.setText(f"Time until next break: {self.time_left} seconds")
+        self.show_remaining_action.setText(
+            f"Time until next break: {self.time_left} seconds"
+        )
         self.tray_icon.setToolTip(f"Time until next break: {self.time_left} seconds")
 
     def toggle_pause(self):
@@ -134,12 +157,16 @@ class BreakReminderApp(QApplication):
         if self.paused:
             self.show_remaining_action.setText("Paused")
             self.tray_icon.setToolTip("Paused")
-            if hasattr(self, 'timer'):
+            if hasattr(self, "timer"):
                 self.timer.stop()
         else:
-            self.show_remaining_action.setText(f"Time until next break: {self.time_left} seconds")
-            self.tray_icon.setToolTip(f"Time until next break: {self.time_left} seconds")
-            if hasattr(self, 'timer'):
+            self.show_remaining_action.setText(
+                f"Time until next break: {self.time_left} seconds"
+            )
+            self.tray_icon.setToolTip(
+                f"Time until next break: {self.time_left} seconds"
+            )
+            if hasattr(self, "timer"):
                 self.timer.start()
 
     def write_time_to_file(self):
@@ -153,6 +180,7 @@ class BreakReminderApp(QApplication):
         cleanup()
         super().quit()
 
+
 def check_remaining_time():
     if not os.path.exists(file_path):
         return
@@ -164,6 +192,7 @@ def check_remaining_time():
                 print(f"{message}")
     except:
         pass
+
 
 def main(break_interval=1800, break_duration=30):
     global shared_memory
@@ -177,7 +206,9 @@ def main(break_interval=1800, break_duration=30):
     # Single instance check using QSharedMemory
     shared_memory = QSharedMemory(shared_memory_key)
     if shared_memory.attach():
-        QMessageBox.critical(None, "Error", "An instance of this application is already running.")
+        QMessageBox.critical(
+            None, "Error", "An instance of this application is already running."
+        )
         sys.exit(1)
     if not shared_memory.create(1):
         QMessageBox.critical(None, "Error", "Unable to create shared memory segment.")
@@ -186,11 +217,17 @@ def main(break_interval=1800, break_duration=30):
     break_reminder_app = BreakReminderApp(break_interval, break_duration, sys.argv)
     sys.exit(break_reminder_app.exec_())
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Display a full-screen pause reminder on all monitors.")
-    parser.add_argument('break_interval', type=int, help="Time between breaks in seconds.")
-    parser.add_argument('break_duration', type=int, help="Duration of the break in seconds.")
+    parser = argparse.ArgumentParser(
+        description="Display a full-screen pause reminder on all monitors."
+    )
+    parser.add_argument(
+        "break_interval", type=int, help="Time between breaks in seconds."
+    )
+    parser.add_argument(
+        "break_duration", type=int, help="Duration of the break in seconds."
+    )
     args = parser.parse_args()
 
     main(args.break_interval, args.break_duration)
-

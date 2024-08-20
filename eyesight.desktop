@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=0.1
-Name=EyeSight
-Comment=Reminds you to take a break.
-Exec=.venv/bin/python ./eyesight/main.py 1800 30
-Icon=eyesight
-Terminal=false
-Type=Application
-Categories=Utility;Application;
