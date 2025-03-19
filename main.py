@@ -34,7 +34,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-shared_memory_key = "EyeSightApp"
+shared_memory_key = "EyeSightApp_iIhtA63o6furmI"
 
 
 class BreakReminderApp(QApplication):
