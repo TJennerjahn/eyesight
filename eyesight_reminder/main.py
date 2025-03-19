@@ -374,11 +374,30 @@ class BreakReminderApp(QApplication):
         script_dir = pathlib.Path(__file__).parent.absolute()
         icon_path = script_dir / "resources" / "icon.png"
 
-        if not os.path.exists(icon_path):
-            print(f"Warning: Icon file not found at {icon_path}")
+        # Fallback paths for different deployment scenarios
+        fallback_paths = [
+            # Current directory
+            pathlib.Path.cwd() / "resources" / "icon.png",
+            # AppImage or other bundled deployment
+            pathlib.Path(sys.executable).parent / "resources" / "icon.png",
+        ]
+
+        # Try the primary path first
+        if os.path.exists(icon_path):
+            icon_file = str(icon_path)
+        else:
+            # Try fallback paths
+            for path in fallback_paths:
+                if os.path.exists(path):
+                    icon_file = str(path)
+                    break
+            else:
+                # If no paths work, use a warning message and continue
+                print(f"Warning: Icon file not found at {icon_path} or fallbacks")
+                icon_file = str(icon_path)  # Use the original path anyway
         
         self.tray_icon = QSystemTrayIcon(
-            QIcon(str(icon_path)), self
+            QIcon(icon_file), self
         )
         self.tray_menu = QMenu()
 

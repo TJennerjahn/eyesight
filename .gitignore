@@ -2,3 +2,29 @@
 .env.leave
 .venv/
 .direnv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.nox/
+
+# Misc
+.DS_Store

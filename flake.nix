@@ -24,6 +24,8 @@
               qt5.qtbase
               libsForQt5.qt5.qtx11extras
               setuptools
+              build
+              twine
             ]);
           shellHook = ''
             export LD_LIBRARY_PATH=${pkgs.libGL}/lib/
