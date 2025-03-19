@@ -1,20 +1,24 @@
-import os
-import sys
 import argparse
-import signal
+import os
 import pathlib
-import tempfile
+import signal
+import socket
+import sys
 from PyQt5.QtWidgets import (
+    QAction,
     QApplication,
     QLabel,
     QMainWindow,
-    QSystemTrayIcon,
     QMenu,
-    QAction,
     QMessageBox,
+    QSystemTrayIcon,
 )
-from PyQt5.QtCore import Qt, QTimer, QSharedMemory
+from PyQt5.QtCore import Qt, QTimer, QSharedMemory, QSocketNotifier
 from PyQt5.QtGui import QFont, QIcon
+import tempfile
+
+signal_receiver, signal_emitter = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+signal_receiver.setblocking(False)
 
 shared_memory = None
 
@@ -37,6 +41,12 @@ def signal_handler(sig, frame):
     cleanup()
     sys.exit(0)
 
+def qt_signal_handler(sig, frame):
+    # Send a message through the socket pair to notify the Qt app
+    signal_emitter.send(b'x')
+    # Also attempt direct exit in case the socket approach fails
+    cleanup()
+    # Don't call sys.exit here as it may interfere with the Qt event loop
 
 shared_memory_key = "EyeSightApp_iIhtA63o6furmI"
 
@@ -57,6 +67,42 @@ class BreakReminderApp(QApplication):
         self.initial_timer.setInterval(1000)  # Update every second
         self.initial_timer.timeout.connect(self.update_time_left)
         self.initial_timer.start()
+        
+        # Set up signal handling through the socket
+        self.signal_notifier = QSocketNotifier(signal_receiver.fileno(), QSocketNotifier.Read, self)
+        self.signal_notifier.activated.connect(self.handle_signal)
+        
+        # Process events frequently to ensure signals are processed
+        self.processEvents()
+    
+    # Override the event method to handle the KeyboardInterrupt exception (Ctrl+C)
+    def event(self, event):
+        # Process all other events normally
+        return_value = super().event(event)
+        # Check if Ctrl+C was pressed in the terminal
+        if hasattr(signal, 'SIGINT'):
+            try:
+                # Check for Ctrl+C signal and exit if detected
+                # This is a backup mechanism for handling Ctrl+C
+                if signal.getsignal(signal.SIGINT) == signal.default_int_handler:
+                    # The default handler is installed, means Ctrl+C may not be handled
+                    # Force Ctrl+C to be handled by our qt_signal_handler
+                    signal.signal(signal.SIGINT, qt_signal_handler)
+            except KeyboardInterrupt:
+                # Exit if a keyboard interrupt is detected
+                self.handle_signal()
+                return True
+        return return_value
+
+    def handle_signal(self):
+        # Clear the socket data
+        signal_receiver.recv(1024)  # Receive more data to clear any backlog
+        print("Shutdown signal received, exiting...")  # Add this to confirm signal receipt
+        # Clean up and exit immediately without further event processing
+        cleanup()
+        # Exit both the application and the Python process
+        QApplication.exit(0)  # Exit the Qt event loop
+        sys.exit(0)  # Exit the Python process directly
 
     def setup_overlays(self):
         for screen in self.screens():
@@ -131,7 +177,10 @@ class BreakReminderApp(QApplication):
     def setup_tray_icon(self):
         # Get the directory where the script is located
         script_dir = pathlib.Path(__file__).parent.absolute()
-        icon_path = script_dir / "icon.png"
+        icon_path = script_dir / "resources" / "icon.png"
+
+        if not os.path.exists(icon_path):
+            print(f"Warning: Icon file not found at {icon_path}")
         
         self.tray_icon = QSystemTrayIcon(
             QIcon(str(icon_path)), self
@@ -193,11 +242,21 @@ class BreakReminderApp(QApplication):
 def main(break_interval=1200, break_duration=20):
     global shared_memory
 
-    # Set up signal handling
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # To make Ctrl+C work with PyQt, we need to follow these steps:
+    # 1. Set the high DPI attribute before creating the app
+    # 2. Create our custom app class that handles signals
+    # 3. Set up signal handling after app creation
+    # 4. Use our signal redirection system
 
-    app = QApplication(sys.argv)
+    # Enable high DPI scaling before creating the application
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    
+    # Create our custom application with signal handling
+    break_reminder_app = BreakReminderApp(break_interval, break_duration, sys.argv)
+    
+    # Set up signal handling for Qt applications AFTER the application is created
+    signal.signal(signal.SIGINT, qt_signal_handler)
+    signal.signal(signal.SIGTERM, qt_signal_handler)
 
     # Single instance check using QSharedMemory
     shared_memory = QSharedMemory(shared_memory_key)
@@ -210,8 +269,15 @@ def main(break_interval=1200, break_duration=20):
         QMessageBox.critical(None, "Error", "Unable to create shared memory segment.")
         sys.exit(1)
 
-    break_reminder_app = BreakReminderApp(break_interval, break_duration, sys.argv)
-    sys.exit(break_reminder_app.exec_())
+    # Start the application and ensure proper exit
+    try:
+        return_code = break_reminder_app.exec_()
+        cleanup()
+        sys.exit(return_code)
+    except KeyboardInterrupt:
+        print("Caught keyboard interrupt, exiting...")
+        cleanup()
+        sys.exit(0)
 
 
 if __name__ == "__main__":
