@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import signal
+import pathlib
 from PyQt5.QtWidgets import (
     QApplication,
     QLabel,
@@ -124,8 +125,12 @@ class BreakReminderApp(QApplication):
         self.write_time_to_file()
 
     def setup_tray_icon(self):
+        # Get the directory where the script is located
+        script_dir = pathlib.Path(__file__).parent.absolute()
+        icon_path = script_dir / "icon.png"
+        
         self.tray_icon = QSystemTrayIcon(
-            QIcon("/home/tjennerjahn/Dev/eyesight/icon.png"), self
+            QIcon(str(icon_path)), self
         )
         self.tray_menu = QMenu()
 
