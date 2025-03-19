@@ -165,9 +165,10 @@ class BreakReminderApp(QApplication):
     def update_overlays(self):
         if not self.paused:
             if self.time_left > 0:
+                time_text = self.format_time_remaining(self.time_left)
                 for overlay in self.overlays:
                     overlay.message_label.setText(
-                        f"Take a short pause!\nTime left: {self.time_left} seconds"
+                        f"Take a short pause!\nTime left: {time_text}"
                     )
                 self.time_left -= 1
             else:
@@ -187,8 +188,9 @@ class BreakReminderApp(QApplication):
         )
         self.tray_menu = QMenu()
 
+        time_text = self.format_time_remaining(self.time_left)
         self.show_remaining_action = QAction(
-            f"Time until next break: {self.time_left} seconds", self
+            f"Time until next break: {time_text}", self
         )
         self.tray_menu.addAction(self.show_remaining_action)
 
@@ -204,11 +206,20 @@ class BreakReminderApp(QApplication):
         self.tray_icon.show()
         self.update_tray_icon()
 
+    def format_time_remaining(self, seconds):
+        """Format seconds into a human-readable string (minutes or seconds)"""
+        if seconds >= 60:
+            minutes = seconds // 60
+            return f"{minutes} minute{'s' if minutes != 1 else ''}"
+        else:
+            return f"{seconds} second{'s' if seconds != 1 else ''}"
+            
     def update_tray_icon(self):
+        time_text = self.format_time_remaining(self.time_left)
         self.show_remaining_action.setText(
-            f"Time until next break: {self.time_left} seconds"
+            f"Time until next break: {time_text}"
         )
-        self.tray_icon.setToolTip(f"Time until next break: {self.time_left} seconds")
+        self.tray_icon.setToolTip(f"Time until next break: {time_text}")
 
     def toggle_pause(self):
         self.paused = not self.paused
@@ -218,11 +229,12 @@ class BreakReminderApp(QApplication):
             if hasattr(self, "timer"):
                 self.timer.stop()
         else:
+            time_text = self.format_time_remaining(self.time_left)
             self.show_remaining_action.setText(
-                f"Time until next break: {self.time_left} seconds"
+                f"Time until next break: {time_text}"
             )
             self.tray_icon.setToolTip(
-                f"Time until next break: {self.time_left} seconds"
+                f"Time until next break: {time_text}"
             )
             if hasattr(self, "timer"):
                 self.timer.start()
