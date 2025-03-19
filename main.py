@@ -3,6 +3,7 @@ import sys
 import argparse
 import signal
 import pathlib
+import tempfile
 from PyQt5.QtWidgets import (
     QApplication,
     QLabel,
@@ -17,7 +18,10 @@ from PyQt5.QtGui import QFont, QIcon
 
 shared_memory = None
 
-file_path = "/tmp/eyesight_status"
+# Create a NamedTemporaryFile that's deleted when closed
+temp_file = tempfile.NamedTemporaryFile(prefix="eyesight_status_", delete=False)
+file_path = temp_file.name
+temp_file.close()
 
 
 def cleanup():
@@ -195,7 +199,9 @@ def check_remaining_time():
             message = f.read().strip()
             if message:
                 print(f"{message}")
-    except:
+    except Exception as e:
+        # More specific exception handling
+        print(f"Error reading time file: {e}", file=sys.stderr)
         pass
 
 
