@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QAction,
     QMessageBox,
 )
-from PyQt5.QtCore import Qt, QTimer, QSharedMemory, QBuffer, QDataStream, QByteArray
+from PyQt5.QtCore import Qt, QTimer, QSharedMemory
 from PyQt5.QtGui import QFont, QIcon
 
 shared_memory = None
@@ -188,21 +188,6 @@ class BreakReminderApp(QApplication):
     def quit(self):
         cleanup()
         super().quit()
-
-
-def check_remaining_time():
-    if not os.path.exists(file_path):
-        return
-
-    try:
-        with open(file_path, "r") as f:
-            message = f.read().strip()
-            if message:
-                print(f"{message}")
-    except Exception as e:
-        # More specific exception handling
-        print(f"Error reading time file: {e}", file=sys.stderr)
-        pass
 
 
 def main(break_interval=1200, break_duration=20):
