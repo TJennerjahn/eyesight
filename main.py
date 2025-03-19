@@ -205,7 +205,7 @@ def check_remaining_time():
         pass
 
 
-def main(break_interval=1800, break_duration=30):
+def main(break_interval=1200, break_duration=20):
     global shared_memory
 
     # Set up signal handling
@@ -234,11 +234,13 @@ if __name__ == "__main__":
         description="Display a full-screen pause reminder on all monitors."
     )
     parser.add_argument(
-        "break_interval", type=int, help="Time between breaks in seconds."
+        "--interval", "-i", type=int, default=1200, 
+        help="Time between breaks in seconds (default: 1200, 20 minutes as per 20-20-20 rule)."
     )
     parser.add_argument(
-        "break_duration", type=int, help="Duration of the break in seconds."
+        "--duration", "-d", type=int, default=20,
+        help="Duration of the break in seconds (default: 20, as per 20-20-20 rule)."
     )
     args = parser.parse_args()
 
-    main(args.break_interval, args.break_duration)
+    main(args.interval, args.duration)
